@@ -1,0 +1,31 @@
+# IDE files (JetBrains CLion)
+.idea/
+*.iml
+
+# Build directories (CLion/CMake)
+cmake-build-*/
+CMakeFiles/
+Makefile
+CMakeCache.txt
+compile_commands.json
+
+# Binary executables
+*.exe
+*.out
+*.o
+*.obj
+*.a
+*.so
+*.dylib
+*.dll
+
+# MacOS metadata
+.DS_Store
+
+# Results (optional — only if you don’t want to track them)
+# /results/*.txt
+# /results/*.csv
+
+# Optional: Logs or temporary profiling data
+*.log
+*.perf
