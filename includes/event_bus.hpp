@@ -25,7 +25,7 @@ namespace eventbus {
             if (does_topic_exist(topic_name)) {
                 throw std::runtime_error("Topic already exists.");
             }
-            topics_[topic_name] = std::make_unique<Topic>(topic_name, partition_count);
+            topics_.emplace(topic_name, Topic(topic_name, partition_count));
         }
 
         std::shared_ptr<ConsumerGroup> create_consumer_group(const std::string& group_id, const std::string& topic_name,
@@ -38,7 +38,7 @@ namespace eventbus {
             }
 
             const auto consumer_group = std::make_shared<ConsumerGroup>(group_id, group_size,
-                topics_[topic_name] -> partition_count());
+                topics_.at(topic_name).partition_count()); // using shared_ptr here to avoid dangling pointer problem when vector grows
 
             consumer_groups_by_topic_name_[topic_name].push_back(consumer_group);
 
@@ -64,13 +64,13 @@ namespace eventbus {
 
             for (auto& consumer_group : consumer_groups) { // fan out to all groups
                 consumer_group-> deliver_event_to_consumer_group(event, get_partition_index(event.id,
-                    topics_.at(event.topic) -> partition_count(), partition_key));
+                    topics_.at(event.topic).partition_count(), partition_key));
             }
         }
 
 
     private:
-        std::unordered_map<std::string, std::unique_ptr<Topic>> topics_;
+        std::unordered_map<std::string, Topic> topics_;
         std::unordered_map<std::string, std::vector<std::shared_ptr<ConsumerGroup>>> consumer_groups_by_topic_name_;
         std::unordered_map<std::string, size_t> message_id_by_topic_name_;
         std::atomic<bool> set_up_done_{false};

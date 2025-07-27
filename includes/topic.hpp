@@ -5,7 +5,7 @@
 namespace eventbus {
     class Topic {
     public:
-        explicit Topic(std::string  name, const int partition_count):
+        explicit Topic(std::string name, const int partition_count):
         name_(std::move(name)),
         partition_count_(partition_count){}
 

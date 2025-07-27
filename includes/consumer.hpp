@@ -2,24 +2,52 @@
 #include "consumer_group.hpp"
 #include "event.hpp"
 #include "lock_free_spsc_queue.hpp"
+#include <vector>
 
 namespace eventbus {
     class Consumer {
     public:
         explicit Consumer(ConsumerGroup& consumer_group) {
-            queue_ = consumer_group.get_queues();
+            queues_ = consumer_group.get_queues();
         }
 
-        [[nodiscard]] std::optional<Event> poll() const {
-            for (const auto& q : queue_) {
-                if (Event event; q -> dequeue(event)) {
-                    return event;
+        // implemented batching by  division approach. Dividing max_events by the queue size. If any remainder, add
+        // one to each of the queue until remainder is exhausted
+        [[nodiscard]] std::vector<Event> poll_batch(const size_t max_events = 10) const {
+            if (queues_.empty() || max_events == 0) {
+                return {};
+            }
+
+            std::vector<Event> events;
+            events.reserve(max_events);
+
+            const size_t num_queues = queues_.size();
+            const size_t events_per_queue = max_events / num_queues;
+            size_t remainder = max_events % num_queues;
+
+            for (size_t q_idx = 0; q_idx < num_queues; ++q_idx) {
+                // Calculate how many events to take from this queue
+                size_t events_to_take = events_per_queue;
+                if (remainder > 0) {
+                    events_to_take += 1;
+                    --remainder;
+                }
+
+                // Take events from this queue
+                size_t taken = 0;
+                while (taken < events_to_take) {
+                    if (Event event; queues_[q_idx]->dequeue(event)) {
+                        events.push_back(std::move(event));
+                        taken++;
+                    } else {
+                        break;  // No more events in this queue
+                    }
                 }
             }
-            return std::nullopt;
+            return events;
         }
 
     private:
-        std::vector<std::shared_ptr<LockFreeSpscQueue<Event>>> queue_;
+        std::vector<std::shared_ptr<LockFreeSpscQueue<Event>>> queues_;
     };
 }
