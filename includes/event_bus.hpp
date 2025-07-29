@@ -3,6 +3,7 @@
 #include <vector>
 #include <string>
 
+#include "back_pressure_strategy.hpp"
 #include "consumer_group.hpp"
 #include "event.hpp"
 #include "lock_free_spsc_queue.hpp"
@@ -14,6 +15,9 @@ namespace eventbus {
     class EventBus {
 
     public:
+        explicit EventBus(const BackPressureConfig& config = {})
+            : backpressure_handler_(config){}
+
         void set_up_done() {
             set_up_done_.store(true, std::memory_order_relaxed);
         }
@@ -45,7 +49,7 @@ namespace eventbus {
             return consumer_group;
         }
 
-        void publish_event(const Event& event, const std::string& partition_key = "") {
+        bool publish_event(const Event& event, const std::string& partition_key = "") {
 
             if (!does_topic_exist(event.topic)) {
                 throw std::runtime_error("Topic does not exist to publish.");
@@ -54,7 +58,7 @@ namespace eventbus {
             auto consumer_groups_by_topic_name_it = consumer_groups_by_topic_name_.find(event.topic);
 
             if (consumer_groups_by_topic_name_it == consumer_groups_by_topic_name_.end()) {
-                return; // No consumer groups for this topic, drop message
+                return false; // No consumer groups for this topic, drop message
             }
 
             const std::vector<std::shared_ptr<ConsumerGroup>>& consumer_groups =
@@ -62,10 +66,15 @@ namespace eventbus {
 
             event.id = get_next_message_id_for_topic(event.topic); // ideally we should create a wrapper here on event and store metadata like id on top level of that wrapper
 
+            const size_t partition_index = get_partition_index(event.id,
+                    topics_.at(event.topic).partition_count(), partition_key);
+
+            bool all_succeeded = true;
             for (auto& consumer_group : consumer_groups) { // fan out to all groups
-                consumer_group-> deliver_event_to_consumer_group(event, get_partition_index(event.id,
-                    topics_.at(event.topic).partition_count(), partition_key));
+                const bool success = consumer_group-> deliver_event_to_consumer_group(event, partition_index, backpressure_handler_);
+                all_succeeded = all_succeeded && success;
             }
+            return all_succeeded;
         }
 
 
@@ -74,6 +83,7 @@ namespace eventbus {
         std::unordered_map<std::string, std::vector<std::shared_ptr<ConsumerGroup>>> consumer_groups_by_topic_name_;
         std::unordered_map<std::string, size_t> message_id_by_topic_name_;
         std::atomic<bool> set_up_done_{false};
+        BackPressureHandler backpressure_handler_;
 
         bool does_topic_exist(const std::string &topic_name) {
             if (topics_.find(topic_name) != topics_.end()) {
@@ -85,9 +95,9 @@ namespace eventbus {
         static size_t get_partition_index(const size_t event_id, const size_t partition_count,
             const std::string& partition_key) {
             if (partition_key.empty()) {
-                return event_id % partition_count;
+                return event_id % partition_count; // round robin
             }
-            return std::hash<std::string>{}(partition_key) % partition_count;
+            return std::hash<std::string>{}(partition_key) % partition_count; // key based hashing
         }
 
         size_t get_next_message_id_for_topic(const std::string& topic_name) {

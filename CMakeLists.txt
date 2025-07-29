@@ -10,4 +10,5 @@ add_executable(lock_free_event_bus main.cpp
         includes/consumer.hpp
         includes/topic.hpp
         includes/consumer_group.hpp
+        includes/back_pressure_strategy.hpp
 )

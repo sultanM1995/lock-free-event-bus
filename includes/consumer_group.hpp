@@ -25,10 +25,11 @@ namespace eventbus {
             return queue_assignments_by_consumer_index_[idx];
         }
 
-        // called by bus to deliver message to all the consumers of this group.
-        void deliver_event_to_consumer_group(const Event& event, const size_t partition_index) const {
+        // called by bus to deliver message to one of the partitions of topic that this consumer is consuming from.
+        bool deliver_event_to_consumer_group(const Event& event, const size_t partition_index, const BackPressureHandler& back_pressure_handler) const {
             const auto partition_queue = partition_queues_[partition_index];
-            partition_queue->enqueue(event);
+            const bool can_enqueue = back_pressure_handler.try_enqueue_with_backpressure_strategy(partition_queue, event);
+            return can_enqueue;
         }
 
 
