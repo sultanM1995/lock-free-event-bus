@@ -7,47 +7,14 @@
 namespace eventbus {
     class Consumer {
     public:
-        explicit Consumer(ConsumerGroup& consumer_group) {
-            queues_ = consumer_group.get_queues();
-        }
+        explicit Consumer(ConsumerGroup& consumer_group);
 
-        // implemented batching by  division approach. Dividing max_events by the queue size. If any remainder, add
-        // one to each of the queue until remainder is exhausted
-        [[nodiscard]] std::vector<Event> poll_batch(const size_t max_events = 10) const {
-            if (queues_.empty() || max_events == 0) {
-                return {};
-            }
+        void receive_queues(const std::vector<std::shared_ptr<LockFreeSpscQueue<Event>>>& queues);
 
-            std::vector<Event> events;
-            events.reserve(max_events);
-
-            const size_t num_queues = queues_.size();
-            const size_t events_per_queue = max_events / num_queues;
-            size_t remainder = max_events % num_queues;
-
-            for (size_t q_idx = 0; q_idx < num_queues; ++q_idx) {
-                // Calculate how many events to take from this queue
-                size_t events_to_take = events_per_queue;
-                if (remainder > 0) {
-                    events_to_take += 1;
-                    --remainder;
-                }
-
-                // Take events from this queue
-                size_t taken = 0;
-                while (taken < events_to_take) {
-                    if (Event event; queues_[q_idx]->dequeue(event)) {
-                        events.push_back(std::move(event));
-                        taken++;
-                    } else {
-                        break;  // No more events in this queue
-                    }
-                }
-            }
-            return events;
-        }
+        [[nodiscard]] std::vector<Event> poll_batch(size_t max_events = 10) const;
 
     private:
         std::vector<std::shared_ptr<LockFreeSpscQueue<Event>>> queues_;
+        size_t consumer_id = 0;
     };
 }

@@ -70,15 +70,14 @@ int main() {
 
         // Create two topics
         std::cout << "Creating topics...\n";
-        event_bus.create_topic("orders", 7);
-        event_bus.create_topic("users", 7);
+        event_bus.create_topic("orders", 10);
+        event_bus.create_topic("users", 10);
         std::cout << "Created topics: orders, users\n\n";
 
         // Create consumer groups (3 consumers each)
         std::cout << "Creating consumer groups...\n";
-        const auto order_group = event_bus.create_consumer_group("order_processors", "orders", 3);
-        const auto user_group = event_bus.create_consumer_group("user_processors", "users", 3);
-        std::cout << "✓ Created consumer groups with 3 consumers each\n\n";
+        const auto order_group = event_bus.create_consumer_group("order_processors", "orders");
+        const auto user_group = event_bus.create_consumer_group("user_processors", "users");
 
         // Create consumers
         std::cout << "Creating consumers...\n";
@@ -94,7 +93,7 @@ int main() {
         event_bus.set_up_done();
         std::cout << "✓ Setup completed\n\n";
 
-        constexpr int events_per_publisher = 5000;
+        constexpr int events_per_publisher = 5000000;
 
         std::cout << "=== Starting Threads ===\n";
 
