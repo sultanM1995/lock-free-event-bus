@@ -10,17 +10,11 @@ using namespace eventbus;
 using namespace std::chrono_literals;
 
 void publisher_thread(EventBus& bus, const std::string& topic, const int num_events, const int publisher_id) {
-    //std::cout << "[Publisher-" << publisher_id << "] Starting for topic: " << topic << "\n";
 
     for (int i = 0; i < num_events; ++i) {
         Event event(topic, "event_" + std::to_string(i) + "_from_publisher_" + std::to_string(publisher_id));
         bus.publish_event(event);
-
-        //std::cout << "[Publisher-" << publisher_id << "] Published: " << event.payload << "\n";
-        //std::this_thread::sleep_for(100ms); // Small delay to see output
     }
-
-    //std::cout << "[Publisher-" << publisher_id << "] Finished\n";
 }
 
 void consumer_thread(const Consumer& consumer, const std::string& consumer_name, const int expected_events) {
@@ -37,14 +31,8 @@ void consumer_thread(const Consumer& consumer, const std::string& consumer_name,
         if (!events.empty()) {
             start_time = std::chrono::steady_clock::now();
             for (const auto& event : events) {
+                std::cout << event.payload;
                 events_received++;
-                // std::cout << "[" << consumer_name << "] Received (" << events_received << "): "
-                //           << event.payload << "\n";
-                //
-                // // Break if we've received enough events
-                // if (events_received >= expected_events) {
-                //     break;
-                // }
             }
         } else {
             // Check for timeout to prevent infinite waiting
@@ -66,49 +54,37 @@ int main() {
     std::cout << "=== Multi-threaded EventBus Test with Batch Polling ===\n\n";
 
     try {
-        EventBus event_bus;
 
-        // Create two topics
-        std::cout << "Creating topics...\n";
-        event_bus.create_topic("orders", 10);
-        event_bus.create_topic("users", 10);
-        std::cout << "Created topics: orders, users\n\n";
+        const EventBusConfig config {
+            .topics = {
+                { "orders", 3 },
+                { "users", 3 }
+            },
+            .consumer_groups = {
+                { "order_processors", "orders", 1 },
+                { "user_processors", "users", 3 }
+            }
+        };
 
-        // Create consumer groups (3 consumers each)
-        std::cout << "Creating consumer groups...\n";
-        const auto order_group = event_bus.create_consumer_group("order_processors", "orders");
-        const auto user_group = event_bus.create_consumer_group("user_processors", "users");
+        EventBus event_bus(config);
 
-        // Create consumers
-        std::cout << "Creating consumers...\n";
-        Consumer order_consumer1(*order_group);
-        Consumer order_consumer2(*order_group);
-        Consumer order_consumer3(*order_group);
-        Consumer user_consumer1(*user_group);
-        Consumer user_consumer2(*user_group);
-        Consumer user_consumer3(*user_group);
-        std::cout << "✓ Created 6 consumers\n\n";
-
-        // Finalize setup
-        event_bus.set_up_done();
         std::cout << "✓ Setup completed\n\n";
 
-        constexpr int events_per_publisher = 5000000;
+        constexpr int events_per_publisher = 15;
 
         std::cout << "=== Starting Threads ===\n";
 
         // Start consumer threads first
         std::vector<std::thread> consumer_threads;
 
-        // All consumers use batch polling
-        consumer_threads.emplace_back(consumer_thread, std::ref(order_consumer1), "OrderConsumer1", events_per_publisher);
-        consumer_threads.emplace_back(consumer_thread, std::ref(order_consumer2), "OrderConsumer2", events_per_publisher);
-        consumer_threads.emplace_back(consumer_thread, std::ref(order_consumer3), "OrderConsumer3", events_per_publisher);
-        consumer_threads.emplace_back(consumer_thread, std::ref(user_consumer1), "UserConsumer1", events_per_publisher);
-        consumer_threads.emplace_back(consumer_thread, std::ref(user_consumer2), "UserConsumer2", events_per_publisher);
-        consumer_threads.emplace_back(consumer_thread, std::ref(user_consumer3), "UserConsumer3", events_per_publisher);
+        auto& consumers_by_group = event_bus.consumers_by_consumer_group_id();
 
-        // Small delay to let consumers start
+        for (auto& t : consumers_by_group) {
+            for (auto& consumer : t.second) {
+                consumer_threads.emplace_back(consumer_thread, std::ref(*consumer), consumer->consumer_id(), events_per_publisher);
+            }
+        }
+
         std::this_thread::sleep_for(100ms);
 
         // Start publisher threads

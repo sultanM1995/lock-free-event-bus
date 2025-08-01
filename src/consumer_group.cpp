@@ -9,10 +9,10 @@ namespace eventbus {
     group_id_(std::move(group_id)),
     topic_partition_count_(partition_count) {}
 
-    size_t ConsumerGroup::register_consumer(Consumer* consumer) {
+    std::string ConsumerGroup::register_consumer(Consumer* consumer) {
         const size_t consumer_index = assigned_consumers_.size();
         assigned_consumers_.push_back(consumer);
-        return consumer_index;
+        return group_id_ + "/" + std::to_string(consumer_index);
     }
 
     void ConsumerGroup::create_partition_assignments_among_consumers_() {
@@ -30,7 +30,7 @@ namespace eventbus {
         // This is how the assignment will be
         // 0 -> 0, 2, 4 and 1 -> 1, 3
         for (size_t i = 0; i < topic_partition_count_; ++i) {
-            auto partition_queue = std::make_shared<LockFreeSpscQueue<Event>>(8192);
+            auto partition_queue = std::make_shared<LockFreeMpscQueue<Event>>(8192);
             partition_queues_.push_back(partition_queue);
             queue_assignments_by_consumer_index_[i % assigned_consumers_.size()]
             .push_back(partition_queue);

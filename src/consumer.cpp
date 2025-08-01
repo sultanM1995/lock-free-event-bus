@@ -1,13 +1,11 @@
 #include "consumer.hpp"
 
-#include <iostream>
-
 namespace eventbus {
      Consumer::Consumer(ConsumerGroup& consumer_group) {
-        consumer_id = consumer_group.register_consumer(this);
+        consumer_id_ = consumer_group.register_consumer(this);
      }
 
-     void Consumer::receive_queues(const std::vector<std::shared_ptr<LockFreeSpscQueue<Event>>>& queues) {
+     void Consumer::receive_queues(const std::vector<std::shared_ptr<LockFreeMpscQueue<Event>>>& queues) {
          queues_ = queues;
      }
 

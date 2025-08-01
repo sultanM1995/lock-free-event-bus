@@ -6,10 +6,10 @@ using std::atomic;
 
 namespace eventbus {
     template<typename T>
-    class LockFreeSpscQueue {
+    class LockFreeMpscQueue {
 
     public:
-        explicit LockFreeSpscQueue(const size_t capacity)
+        explicit LockFreeMpscQueue(const size_t capacity)
                : capacity_(capacity + 1),  // +1 to distinguish full from empty
                  buffer_(std::make_unique<T[]>(capacity_)),
                  head_(0),
@@ -17,19 +17,22 @@ namespace eventbus {
         {}
 
         bool enqueue(const T& item) {
-            const size_t current_tail = tail_.load(std::memory_order_relaxed);
-            const size_t next_tail = (current_tail + 1) % capacity_;
-            if (next_tail == head_.load(std::memory_order_acquire)) {
+            const size_t current_tail = tail_.fetch_add(1, std::memory_order_acq_rel);
+            const size_t idx = current_tail % capacity_;
+            const size_t next_idx = (current_tail + 1) % capacity_;
+            const size_t current_head = head_.load(std::memory_order_acquire);
+            if (next_idx == current_head) {
+                tail_.fetch_sub(1, std::memory_order_acq_rel);
                 return false;
             }
-            buffer_[current_tail] = item;
-            tail_.store(next_tail, std::memory_order_release);
+            buffer_[idx] = item;
             return true;
         }
 
         bool dequeue(T& item) {
             const size_t current_head = head_.load(std::memory_order_relaxed);
-            if (current_head == tail_.load(std::memory_order_acquire)) {
+            const size_t current_tail = tail_.load(std::memory_order_acquire);
+            if (current_tail % capacity_ == current_head) {
                 return false;
             }
             item = buffer_[current_head];

@@ -6,7 +6,8 @@ set(CMAKE_CXX_STANDARD 17)
 file(GLOB SRCS src/*.cpp)
 
 add_library(eventbus_lib ${SRCS}
-        src/consumer.cpp)
+        src/consumer.cpp
+        includes/event_bus_config.hpp)
 
 target_include_directories(eventbus_lib
         PUBLIC
