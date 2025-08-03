@@ -181,7 +181,7 @@ private:
         int failed_count = 0;
 
         for (int i = 0; i < num_events; ++i) {
-            std::string payload = "{\"id\":" + std::to_string(i) +
+            const std::string payload = "{\"id\":" + std::to_string(i) +
                                  R"(,"sym":"AAPL")" +
                                  ",\"px\":150.25" +
                                  ",\"qty\":100}";

@@ -67,18 +67,10 @@ public:
 
         long published = 0;
         for (int i = 0; i < num_events; ++i) {
-            std::string payload = "{";
-            payload += "\"trade_id\":" + std::to_string(i) + ",";
-            payload += "\"timestamp\":" + std::to_string(
-                std::chrono::duration_cast<std::chrono::milliseconds>(
-                    std::chrono::system_clock::now().time_since_epoch()).count()) + ",";
-            payload += R"("symbol":"STOCK)" + std::to_string(i % 100) + "\",";
-            payload += "\"price\":" + std::to_string(100.0 + (i % 500) * 0.01) + ",";
-            payload += "\"quantity\":" + std::to_string(1 + (i % 1000)) + ",";
-            payload += R"("side":")" + std::string((i % 2) ? "BUY" : "SELL") + "\",";
-            payload += R"("user":"TRADER)" + std::to_string(i % 20) + "\",";
-            payload += R"("venue":"EXCHANGE)" + std::to_string(i % 5) + "\"";
-            payload += "}";
+            const std::string payload = "{\"id\":" + std::to_string(i) +
+                                 R"(,"sym":"AAPL")" +
+                                 ",\"px\":150.25" +
+                                 ",\"qty\":100}";
             Event event(topic, payload);
             if (bus.publish_event(event)) {
                 published++;

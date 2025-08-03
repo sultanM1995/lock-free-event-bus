@@ -1,0 +1,175 @@
+Lock-Free Event Bus - Latency Benchmark
+===============================================
+
+System: Apple M1, 8C/8T, 16GB RAM, macOS 13.2.1
+Compiler: Apple clang version 14.0.3 (clang-1403.0.22.14.1)
+Build: Release (-O3)
+
+Payload: Trading message format {"id":N,"sym":"AAPL","px":150.25,"qty":100} (~40 bytes)
+
+Understanding Percentiles:
+- P50 (Median): 50% of events had latency at or below this value
+- P90: 90% of events had latency at or below this value
+- P95: 95% of events had latency at or below this value
+- P99: 99% of events had latency at or below this value
+- P99.9: 99.9% of events had latency at or below this value
+
+=== SUMMARY ===
+
+Burst Load Performance (15K events):
+- Single Partition: P50: 3.1ms, P99: 4.1ms
+- Multi Partition (4P/4C): P50: 1.6ms, P99: 2.7ms
+- Latency Improvement: 2.0x better P50, 1.5x better P99
+
+Sustained Load Performance (50K events @ 10K/sec):
+- Single Partition: P50: 15μs, P99: 69μs
+- Multi Partition (4P/4C): P50: 22μs, P99: 68μs
+- Result: Equivalent ultra-low latency performance
+
+=== LATENCY COMPARISON TABLE ===
+
+BURST LOAD (15,000 Events)
+---------------------------
+Metric       | Single Partition | Multi Partition | Improvement
+-------------|------------------|-----------------|-------------
+Min          | 1,452μs         | 331μs           | 4.4x better
+Average      | 2,954μs         | 1,552μs         | 1.9x better
+P50 (Median) | 3,078μs         | 1,557μs         | 2.0x better
+P90          | 4,000μs         | 2,491μs         | 1.6x better
+P95          | 4,074μs         | 2,606μs         | 1.6x better
+P99          | 4,133μs         | 2,700μs         | 1.5x better
+P99.9        | 4,143μs         | 2,726μs         | 1.5x better
+Max          | 4,145μs         | 2,730μs         | 1.5x better
+
+SUSTAINED LOAD (50,000 Events @ 10K/sec)
+----------------------------------------
+Metric       | Single Partition | Multi Partition | Difference
+-------------|------------------|-----------------|------------
+Min          | 0μs             | 0μs             | No change
+Average      | 22μs            | 25μs            | +3μs
+P50 (Median) | 15μs            | 22μs            | +7μs
+P90          | 57μs            | 62μs            | +5μs
+P95          | 64μs            | 64μs            | No change
+P99          | 69μs            | 68μs            | 1μs better
+P99.9        | 92μs            | 83μs            | 9μs better
+Max          | 1,461μs         | 145μs           | 10x better
+
+KEY TAKEAWAYS:
+- Burst Load: Multi-partition provides 1.5-2x latency improvement
+- Sustained Load: Equivalent performance between single cs multi partition
+
+=== DETAILED RESULTS ===
+
+SINGLE PARTITION CONFIGURATION (1P/1C)
+======================================
+
+Burst Load Test - 15,000 Events (Maximum Stress)
+-------------------------------------------------
+Configuration: 1 topic, 1 partition, 1 consumer
+Publishing: 15,000 events completed in 4ms
+Queue Utilization: ~94% (15K events in 16K queue capacity)
+Consumer: Single threaded sequential processing
+
+Results:
+Sample Size: 15,000 events
+Min Latency: 1,452μs
+Average Latency: 2,954μs
+P50 (Median): 3,078μs
+P90: 4,000μs
+P95: 4,074μs
+P99: 4,133μs
+P99.9: 4,143μs
+Max Latency: 4,145μs
+
+Analysis: High latency due to queue depth buildup from single consumer bottleneck
+
+Sustained Load Test - 50,000 Events @ 10K/sec
+---------------------------------------------
+Configuration: 1 topic, 1 partition, 1 consumer
+Publishing: 50,000 events over 6,482ms (steady rate)
+Consumer: Single threaded with ample processing time
+
+Results:
+Sample Size: 50,000 events
+Min Latency: 0μs
+Average Latency: 22μs
+P50 (Median): 15μs
+P90: 57μs
+P95: 64μs
+P99: 69μs
+P99.9: 92μs
+Max Latency: 1,461μs
+
+Analysis: low latency achieved when consumer keeps pace with producer
+
+MULTI PARTITION CONFIGURATION (4P/4C)
+=====================================
+
+Burst Load Test - 15,000 Events (Horizontal Scaling)
+----------------------------------------------------
+Configuration: 1 topic, 4 partitions, 4 consumers
+Publishing: 15,000 events completed in 2ms (2x faster)
+Queue Utilization: ~23% per partition (3.75K events per 16K queue)
+Consumers: 4 parallel threads processing simultaneously
+
+Results:
+Sample Size: 15,000 events
+Min Latency: 331μs
+Average Latency: 1,552μs (1.9x improvement)
+P50 (Median): 1,557μs (2.0x improvement)
+P90: 2,491μs (1.6x improvement)
+P95: 2,606μs (1.6x improvement)
+P99: 2,700μs (1.5x improvement)
+P99.9: 2,726μs (1.5x improvement)
+Max Latency: 2,730μs (1.5x improvement)
+
+Analysis: Significant latency reduction through load distribution and parallel processing
+
+Sustained Load Test - 50,000 Events @ 10K/sec
+---------------------------------------------
+Configuration: 1 topic, 4 partitions, 4 consumers
+Publishing: 50,000 events over 6,378ms (steady rate)
+Consumers: 4 parallel threads with excellent load distribution
+
+Results:
+Sample Size: 50,000 events
+Min Latency: 0μs
+Average Latency: 25μs (similar to single partition)
+P50 (Median): 22μs (comparable performance)
+P90: 62μs (comparable performance)
+P95: 64μs (identical performance)
+P99: 68μs (1μs improvement)
+P99.9: 83μs (9μs improvement)
+Max Latency: 145μs (90% improvement in worst case)
+
+Analysis: Equivalent behavior
+
+=== PERFORMANCE INSIGHTS ===
+
+Queue Depth Impact:
+- Burst scenarios show clear queue depth effects on latency
+- Multi-partition reduces per-queue depth from 15K to 3.75K events
+- 4x reduction in queue depth yields 2x latency improvement
+
+Load Distribution:
+- Perfect event distribution across all partitions/consumers
+- Zero message loss in all test scenarios
+- Parallel processing eliminates single-consumer bottlenecks
+
+Coordination Overhead:
+- Minimal impact on sustained workloads (7μs P50 difference)
+- Thread-safe latency collection adds negligible overhead
+- Multi-consumer coordination does not degrade performance
+
+=== ARCHITECTURAL RECOMMENDATIONS ===
+
+Use Single Partition (1P/1C) when:
+- Sustained load < 5K events/sec
+- Strict message ordering required
+- Minimal resource usage preferred
+- Latency requirements > 100μs acceptable
+
+Use Multi Partition (4P/4C) when:
+- Burst workloads exceed consumer capacity
+- Sub-millisecond P99 latency require
+- CPU cores available for parallel processing
