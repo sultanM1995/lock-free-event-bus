@@ -23,7 +23,7 @@ namespace eventbus {
         bool enqueue(const T& item) {
             size_t pos = tail_.load(std::memory_order_relaxed);
             while (true) {
-                size_t slot_index = pos % capacity_;
+                size_t slot_index = pos & (capacity_ - 1);
                 node_& node = buffer_[slot_index];
 
                 // Check if this slot is ready for our position
@@ -56,7 +56,7 @@ namespace eventbus {
 
         bool dequeue(T& item) {
             const size_t pos = head_.load(std::memory_order_relaxed);
-            size_t slot_index = pos % capacity_;
+            size_t slot_index = pos & (capacity_ - 1);
 
             node_& node = buffer_[slot_index];
 
