@@ -28,3 +28,6 @@ target_link_libraries(basic_usage_demo PRIVATE eventbus_lib)
 
 add_executable(partition_scaling_demo examples/partition_scaling_demo.cpp)
 target_link_libraries(partition_scaling_demo PRIVATE eventbus_lib)
+
+add_executable(latency_benchmark_demo examples/latency_benchmark_demo.cpp)
+target_link_libraries(latency_benchmark_demo PRIVATE eventbus_lib)

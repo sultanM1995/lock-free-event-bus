@@ -11,13 +11,12 @@ namespace eventbus {
 
     // implemented batching by  division approach. Dividing max_events by the queue size. If any remainder, add
     // one to each of the queue until remainder is exhausted
-    [[nodiscard]] std::vector<Event> Consumer::poll_batch(const size_t max_events) const {
+    [[nodiscard]] const std::vector<Event>& Consumer::poll_batch(const size_t max_events) const {
+         batch_buffer_.clear();
          if (queues_.empty() || max_events == 0) {
-             return {};
+             return batch_buffer_;
          }
-
-         std::vector<Event> events;
-         events.reserve(max_events);
+         batch_buffer_.reserve(max_events);
 
          const size_t num_queues = queues_.size();
          const size_t events_per_queue = max_events / num_queues;
@@ -35,13 +34,13 @@ namespace eventbus {
              size_t taken = 0;
              while (taken < events_to_take) {
                  if (Event event; queues_[q_idx]->dequeue(event)) {
-                     events.push_back(std::move(event));
+                     batch_buffer_.push_back(std::move(event));
                      taken++;
                  } else {
                      break;  // No more events in this queue
                  }
              }
          }
-         return events;
+         return batch_buffer_;
      }
 }

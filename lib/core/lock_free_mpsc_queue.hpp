@@ -1,5 +1,6 @@
 #pragma once
 #include <atomic>
+#include <iostream>
 #include <memory>
 
 using std::atomic;
@@ -22,15 +23,16 @@ namespace eventbus {
         bool enqueue(const T& item) {
             size_t pos = tail_.load(std::memory_order_relaxed);
             while (true) {
-                size_t slot_index = pos % capacity_;  // or pos & (capacity_ - 1) for power-of-2
+                size_t slot_index = pos % capacity_;
                 node_& node = buffer_[slot_index];
 
                 // Check if this slot is ready for our position
                 const size_t seq = node.seq_.load(std::memory_order_acquire);
-                intptr_t dif = static_cast<intptr_t>(seq) - static_cast<intptr_t>(pos);
+                intptr_t diff = static_cast<intptr_t>(seq) - static_cast<intptr_t>(pos);
 
-                if (dif == 0) {
+                if (diff == 0) {
                     // Slot is ready for our position - try to claim it
+                    // Here I could use cas strong as well but it's okay because if our cas fails here my pos will reset and I will retry through while loop
                     if (tail_.compare_exchange_weak(pos, pos + 1,
                                                    std::memory_order_acq_rel,
                                                    std::memory_order_relaxed)) {
@@ -40,9 +42,9 @@ namespace eventbus {
                         // Mark the slot as ready for consumer
                         node.seq_.store(pos + 1, std::memory_order_release);
                         return true;
-                                                   }
+                    }
                     // CAS failed, pos was updated to current tail value, retry
-                } else if (dif < 0) {
+                } else if (diff < 0) {
                     // Slot not ready - queue is full
                     return false;
                 } else {
@@ -54,7 +56,7 @@ namespace eventbus {
 
         bool dequeue(T& item) {
             const size_t pos = head_.load(std::memory_order_relaxed);
-            size_t slot_index = pos % capacity_;  // or pos & (capacity_ - 1) for power-of-2
+            size_t slot_index = pos % capacity_;
 
             node_& node = buffer_[slot_index];
 

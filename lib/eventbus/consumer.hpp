@@ -11,7 +11,7 @@ namespace eventbus {
 
         void receive_queues(const std::vector<std::shared_ptr<LockFreeMpscQueue<Event>>>& queues);
 
-        [[nodiscard]] std::vector<Event> poll_batch(size_t max_events = 10) const;
+        [[nodiscard]] const std::vector<Event>& poll_batch(size_t max_events = 100) const;
 
         [[nodiscard]] const std::string& consumer_id() const {
             return consumer_id_;
@@ -21,5 +21,6 @@ namespace eventbus {
     private:
         std::vector<std::shared_ptr<LockFreeMpscQueue<Event>>> queues_;
         std::string consumer_id_;
+        mutable std::vector<Event> batch_buffer_;
     };
 }

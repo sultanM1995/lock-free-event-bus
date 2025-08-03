@@ -12,13 +12,12 @@ using namespace eventbus;
 using namespace std::chrono_literals;
 
 /**
- * Clean Partition Scaling Demo
+ * Partition Scaling Demo
  * 
  * WHAT WE ARE TESTING:
  * - How partition count affects system throughput under identical workloads
  * - Whether the lock-free event bus scales linearly with increased parallelism
  * - Load distribution effectiveness across multiple consumers
- * - Performance characteristics of different partition-to-consumer ratios
  *
  * TESTING SETUP:
  * Test 1: 1 partition, 1 consumer (baseline - no parallelism)
@@ -31,9 +30,14 @@ using namespace std::chrono_literals;
  *   - 4 consumers process events in parallel (1 consumer per partition)
  *   - Tests if 4x partitions yield proportional throughput increase
  *
- * Test 3: 8 partitions, 4 consumers (over-partitioned scenario)
+ * Test 3: 8 partitions, 8 consumers
  *   - Single producer publishes 10,000 events distributed across 8 partitions
- *   - 4 consumers process events (2 partitions per consumer on average)
+ *   - 8 consumers process events (1 partitions per consumer)
+
+ *
+ * Test 4: 15 partitions, 15 consumers (over-partitioned scenario)
+ *   - Single producer publishes 10,000 events distributed across 15 partitions
+ *   - 15 consumers process events
  *   - Tests diminishing returns of excessive partitioning
  *
  * EXPECTED RESULTS:
@@ -78,7 +82,6 @@ public:
             Event event(topic, payload);
             if (bus.publish_event(event)) {
                 published++;
-                //std::cout << "Published - " + published << std::endl;
             }
         }
 
@@ -98,16 +101,14 @@ public:
             auto events = consumer.poll_batch(100);
             if (!events.empty()) {
                 for (const auto& event : events) {
-                    // --- BEGIN: Simulated real work per event ---
                     volatile int x = 0;
+                    // artifical cpu work
                     for (int i = 0; i < 1000000; ++i) {
                         x += i % 7;
                     }
-                    // --- END: Simulated work ---
                 }
 
                 events_processed += events.size();
-                std::cout << "Events processed - " << events_processed << std::endl;
             } else {
                 //std::cout << "Empty events processed\n";
                 // Brief sleep when no events available
@@ -137,14 +138,23 @@ public:
             }
         };
 
-        EventBus event_bus(config);
+        constexpr BackPressureConfig back_pressure_config {
+            BackPressureStrategy::BLOCK
+        };
+
+        EventBus event_bus(config, back_pressure_config);
         auto& consumer_group = event_bus.consumers_by_consumer_group_id().at("processors");
 
         const auto processing_start = std::chrono::steady_clock::now();
 
         // Start consumers with fixed event targets
         std::vector<std::thread> consumer_threads;
-        int events_per_consumer = events_to_publish / consumers; // this assumes we are doing round robin distribution across partitions and  our total events is divisible by total consumers.
+
+        // this assumes we are doing round robin distribution across partitions and  our total events is divisible by total consumers.
+        // This is to ensure proper measurement as we are not stopping consumer thread until we consume this target event.
+        // So in case of message drop or anything, the consumer will run indefinity, To make sure no message drop, we can change our
+        // Backpressure strategy to BLOCKING, default is DROP_NEWEST
+        int events_per_consumer = events_to_publish / consumers;
 
         for (size_t i = 0; i < consumer_group.size(); ++i) {
             consumer_threads.emplace_back(&PartitionScalingDemo::consumer_thread, this,
@@ -194,7 +204,7 @@ public:
             {1, 1, "Baseline: Single Partition"},
             {4, 4, "Scaled: 4 Partitions"},
             {8, 8, "Scaled: 8 Partitions, 8 Consumers"},
-            {15, 15, "Scaled: 8 Partitions, 8 Consumers"}
+            {15, 15, "Scaled: 15 Partitions, 15 Consumers"}
         };
 
         std::vector<double> throughput_results;
