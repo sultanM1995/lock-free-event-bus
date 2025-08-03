@@ -17,6 +17,7 @@ namespace eventbus {
             return consumer_id_;
         }
 
+
     private:
         std::vector<std::shared_ptr<LockFreeMpscQueue<Event>>> queues_;
         std::string consumer_id_;

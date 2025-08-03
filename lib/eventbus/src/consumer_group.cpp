@@ -30,7 +30,7 @@ namespace eventbus {
         // This is how the assignment will be
         // 0 -> 0, 2, 4 and 1 -> 1, 3
         for (size_t i = 0; i < topic_partition_count_; ++i) {
-            auto partition_queue = std::make_shared<LockFreeMpscQueue<Event>>(8192);
+            auto partition_queue = std::make_shared<LockFreeMpscQueue<Event>>(16384);
             partition_queues_.push_back(partition_queue);
             queue_assignments_by_consumer_index_[i % assigned_consumers_.size()]
             .push_back(partition_queue);

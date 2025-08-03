@@ -1,5 +1,6 @@
 #pragma once
 #include <chrono>
+#include <iostream>
 #include <thread>
 
 namespace eventbus {
@@ -11,14 +12,14 @@ namespace eventbus {
     };
 
     struct BackPressureConfig {
-        BackPressureStrategy strategy = BackPressureStrategy::DROP_NEWEST;
+        BackPressureStrategy strategy = BackPressureStrategy::BLOCK;
 
         // For spinning strategies
         int spin_yield_threshold = 1000;
 
         // For blocking strategy
         std::chrono::microseconds block_sleep_duration{10};
-        std::chrono::milliseconds timeout{100}; // Max time to wait before giving up for block, spin and yielding spin
+        std::chrono::milliseconds timeout{1000}; // Max time to wait before giving up for block, spin and yielding spin
     };
 
     class BackPressureHandler {
@@ -55,18 +56,9 @@ namespace eventbus {
 
         template<typename QueueType, typename EventType>
         bool handle_blocking(const QueueType& queue, const EventType& event) const {
-            const auto start_time = std::chrono::steady_clock::now();
-
             while (!queue->enqueue(event)) {
-                // Check timeout
-                if (std::chrono::steady_clock::now() - start_time > config_.timeout) {
-                    return false; // Timeout, give up
-                }
-
-                // Sleep briefly before retrying
                 std::this_thread::sleep_for(config_.block_sleep_duration);
             }
-
             return true;
         }
 
