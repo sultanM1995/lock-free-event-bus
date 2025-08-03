@@ -1,13 +1,13 @@
-# Lock-Free Event Bus
+# In-Memory Lock-Free Event Bus
 
-A high-performance, lock-free event bus implementation in C++ designed for low-latency, multi-threaded event processing with horizontal scaling through partitioning.
+A kafka inspired high-performance, in-memory lock-free event bus implementation in C++ designed for low-latency, multi-threaded event processing with horizontal scaling through partitioning.
 
 ## 🚀 Performance Highlights
 
 - **Ultra-low latency**: Sub-100μs P99 for sustained workloads
-- **Excellent burst handling**: 2.7ms P99 for 15K event bursts
+- **Burst handling**: 2.7ms P99 for 15K event bursts
 - **Horizontal scaling**: 4.5x throughput improvement with optimal partitioning
-- **Zero message loss**: 100% delivery guarantee with configurable back-pressure
+- **Zero message loss**: 100% delivery guarantee with configurable back-pressure strategy
 - **Lock-free design**: MPSC queues with atomic operations for maximum throughput
 
 ## 🏗️ Architecture
@@ -65,7 +65,7 @@ This block-based consumption optimizes batching efficiency while preserving with
 - Topics contain 1+ partitions for horizontal scaling
 - Each partition backed by dedicated 16K MPSC queue
 - Round-robin or key-based event distribution across partitions
-- **Independent Queue Sets**: Each consumer group gets its own complete set of partition queues, enabling contention-free parallel consumption
+- **Independent Queue Sets**: Each consumer group gets its own copy of complete set of partition queues, enabling contention-free parallel consumption
 
 **📥 Consumption Layer**
 - Consumer groups subscribe to exactly one topic
@@ -453,7 +453,7 @@ cmake -DCMAKE_BUILD_TYPE=Debug ..
 make -j$(nproc)
 
 # Run with debugging symbols
-gdb ./basic_usage_demo
+gdb ./basic_usage_demo   # or: lldb ./basic_usage_demo
 ```
 
 ## 📄 License
